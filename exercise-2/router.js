@@ -7,14 +7,18 @@ const path = require('path')
 const cookieParser = require('cookie');
 const jwt = require('jsonwebtoken');
 
-
-const secret = 'azerty';
+const secretKey = 'azerty'; // key for token signature
 const notFoundPage = '<p style="font-size: 10vh; text-align: center;">404!</p>';
-const returnIndexPage = '<a href="/"><button>Return to Homepage</button></a>';
+const backToIndexPage = '<a href="/"><button>Back to Homepage</button></a>'; // button to turn back front page
+var serverCode; // serverCode to use in
+var pageContent; // page content to use in writeHeadHtmlType function
 
 module.exports = (req, res) => {
+
   switch (`${req.method} ${req.url}`) {
-    case 'GET /':
+
+    case 'GET /': // index
+      console.log('index');
       return readFile(
         path.join(__dirname, 'index.html'),
         (err, data) => {
@@ -28,20 +32,19 @@ module.exports = (req, res) => {
         }
       );
 
-    case 'POST /login':
-      var user_data = {
+    case 'POST /login': // login
+      console.log('login');
+      var userData = {
         logged_in: true
       };
-      var token = jwt.sign(user_data, secret);
-      console.log(user_data);
-      console.log(token);
+      var jsonWebToken = jwt.sign(userData, secretKey);
       res.writeHead(302, {
-        'Set-Cookie': 'token=' + token + '; Max-Age=9000',
+        'Set-Cookie': 'token=' + jsonWebToken + '; HttpOnly; Max-Age=9000',
         'Location': "/"
       });
       return res.end();
 
-    case 'POST /logout':
+    case 'POST /logout': // logout
       console.log('logout');
       res.writeHead(302, {
         'Set-Cookie': 'token=; HttpOnly; Max-Age=0',
@@ -49,33 +52,31 @@ module.exports = (req, res) => {
       });
       return res.end();
 
-    case 'GET /auth_check':
-      console.log('check auth');
-      if (req.headers.cookie) {
+    case 'GET /auth_check': // check log
+      console.log('auth check');
+      if (req.headers.cookie) { // checks if cookie exists
         var parsedCookie = cookieParser.parse(req.headers.cookie);
         console.log(parsedCookie);
-
-        jwt.verify(parsedCookie.token, secret, function(err, result) {
+        jwt.verify(parsedCookie.token, secretKey, function(err, result) {
           if (err) {
-            res.writeHead(401, {
-              'Content-Type': 'text/html'
-            });
-            return res.end(req.headers.cookie + '<p style="font-size: 10vh; text-align: center;">Unauthorized access!</p>' + returnIndexPage);
+            serverCode = 401;
+            pageContent = '<p style="font-size: 10vh; text-align: center;">Unauthorized access!</p>' + backToIndexPage;
+            writeHeadHtmlType(serverCode, pageContent);
           }
-          if (result.logged_in) {
-            res.writeHead(302, {
-              'Content-Type': 'text/html'
-            });
-            return res.end(req.headers.cookie + '<p style="font-size: 10vh; text-align: center;">You\'re logged in!</p>' + returnIndexPage);
+          if (result.logged_in) { // then checks if cookie contains 'loggin_in'
+            serverCode = 302;
+            pageContent = '<p style="font-size: 10vh; text-align: center;">You\'re logged in!</p>' + backToIndexPage;
+            writeHeadHtmlType(serverCode, pageContent);
           }
         });
+        break;
+        
       } else {
-        res.writeHead(401, {
-          'Content-Type': 'text/html'
-        });
-        return res.end(req.headers.cookie + '<p style="font-size: 10vh; text-align: center;">Unauthorized access!</p>' + returnIndexPage);
+        serverCode = 302;
+        pageContent = '<p style="font-size: 10vh; text-align: center;">Unauthorized access!</p>' + backToIndexPage;
+        writeHeadHtmlType(serverCode, pageContent);
+        break;
       }
-      break;
 
     default:
       res.writeHead(
@@ -85,5 +86,15 @@ module.exports = (req, res) => {
         }
       );
       return res.end(notFoundPage);
+
+  } // End switch
+
+  // Generic function to response a HTML type content
+  function writeHeadHtmlType(serverCode, pageContent) {
+    res.writeHead(serverCode, {
+      'Content-Type': 'text/html'
+    });
+    return res.end(req.headers.cookie + pageContent);
   }
+
 }
